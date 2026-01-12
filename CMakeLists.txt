@@ -1,0 +1,227 @@
+cmake_minimum_required(VERSION 3.20)
+
+project(CoolLiveCaption LANGUAGES CXX)
+
+# Some third-party deps expect project version variables; provide defaults.
+set(CMAKE_PROJECT_VERSION "0.1" CACHE STRING "" FORCE)
+set(PROJECT_VERSION_MAJOR 0 CACHE STRING "" FORCE)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+set(ONNXRUNTIME_ROOT "" CACHE PATH "Path to ONNX Runtime prebuilt package (contains include/ and lib/)")
+set(APRIL_ASR_ROOT "" CACHE PATH "Path to april-asr prebuilt package (contains include/ and lib/)")
+set(APRIL_ASR_LIB_NAME "aprilasr" CACHE STRING "Linker name of the april-asr library (without prefix/suffix)")
+
+set(LIBRARIES_DIR "${CMAKE_BINARY_DIR}/libraries")
+
+include(FetchContent)
+
+if(NOT ONNXRUNTIME_ROOT)
+  set(ONNX_VERSION "1.23.2")
+  set(ONNX_ARCHIVE "onnxruntime-win-x64-${ONNX_VERSION}.zip")
+  set(ONNX_URL "https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/${ONNX_ARCHIVE}")
+  set(ONNX_DIR "${LIBRARIES_DIR}/onnxruntime-win-x64-${ONNX_VERSION}")
+
+  FetchContent_Declare(onnxruntime_prebuilt
+    URL ${ONNX_URL}
+    SOURCE_DIR ${ONNX_DIR}
+    DOWNLOAD_EXTRACT_TIMESTAMP OFF
+  )
+  FetchContent_MakeAvailable(onnxruntime_prebuilt)
+
+  if(EXISTS "${ONNX_DIR}/include" AND EXISTS "${ONNX_DIR}/lib")
+    set(ONNXRUNTIME_ROOT "${ONNX_DIR}" CACHE PATH "Path to ONNX Runtime prebuilt package (contains include/ and lib/)" FORCE)
+    set(ONNXRuntime_ROOT_DIR "${ONNX_DIR}" CACHE PATH "")
+    set(ENV{ONNX_ROOT} "${ONNX_DIR}")
+    set(ENV{ONNXRuntime_ROOT_DIR} "${ONNX_DIR}")
+  endif()
+endif()
+
+if(NOT APRIL_ASR_ROOT)
+  set(APRIL_ASR_DIR "${LIBRARIES_DIR}/april-asr-main")
+  FetchContent_Declare(april_asr_source
+    URL https://github.com/abb128/april-asr/archive/refs/heads/main.zip
+    SOURCE_DIR ${APRIL_ASR_DIR}
+    DOWNLOAD_EXTRACT_TIMESTAMP OFF
+  )
+  FetchContent_MakeAvailable(april_asr_source)
+
+  if(WIN32)
+    file(COPY ${CMAKE_SOURCE_DIR}/cmake/endian_compat.h DESTINATION ${APRIL_ASR_DIR}/src/file)
+    file(RENAME ${APRIL_ASR_DIR}/src/file/endian_compat.h ${APRIL_ASR_DIR}/src/file/endian.h)
+    file(COPY ${CMAKE_SOURCE_DIR}/cmake/endian_compat.h DESTINATION ${APRIL_ASR_DIR})
+    file(RENAME ${APRIL_ASR_DIR}/endian_compat.h ${APRIL_ASR_DIR}/endian.h)
+  endif()
+
+  if(EXISTS "${APRIL_ASR_DIR}/include" AND EXISTS "${APRIL_ASR_DIR}/lib")
+    set(APRIL_ASR_ROOT "${APRIL_ASR_DIR}" CACHE PATH "Path to april-asr prebuilt package (contains include/ and lib/)" FORCE)
+  endif()
+endif()
+
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
+
+FetchContent_Declare(glfw
+  GIT_REPOSITORY https://github.com/glfw/glfw.git
+  GIT_TAG 3.4
+)
+FetchContent_MakeAvailable(glfw)
+
+set(GLAD_PROFILE "core" CACHE STRING "")
+set(GLAD_API "gl=3.0" CACHE STRING "")
+set(GLAD_GENERATOR "c" CACHE STRING "")
+set(GLAD_INSTALL OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(glad
+  GIT_REPOSITORY https://github.com/Dav1dde/glad.git
+  GIT_TAG v0.1.36
+)
+FetchContent_MakeAvailable(glad)
+
+FetchContent_Declare(imgui
+  GIT_REPOSITORY https://github.com/ocornut/imgui.git
+  GIT_TAG v1.90.8
+)
+FetchContent_MakeAvailable(imgui)
+
+add_library(imgui_obj
+  ${imgui_SOURCE_DIR}/imgui.cpp
+  ${imgui_SOURCE_DIR}/imgui_demo.cpp
+  ${imgui_SOURCE_DIR}/imgui_draw.cpp
+  ${imgui_SOURCE_DIR}/imgui_tables.cpp
+  ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+  ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+  ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+)
+
+add_library(imgui::imgui ALIAS imgui_obj)
+
+target_include_directories(imgui_obj PUBLIC
+  ${imgui_SOURCE_DIR}
+  ${imgui_SOURCE_DIR}/backends
+  ${glfw_SOURCE_DIR}/include
+  ${glad_SOURCE_DIR}/include
+)
+
+target_compile_definitions(imgui_obj PUBLIC IMGUI_IMPL_OPENGL_LOADER_GLAD)
+target_link_libraries(imgui_obj PUBLIC glfw glad)
+
+set(SOURCES
+  src/main.cpp
+  src/caption.cpp
+  src/april_asr.cpp
+  src/transcription.cpp
+  src/model.cpp
+  src/profanity.cpp
+  include/caption.h
+  include/april_asr.h
+  include/transcription.h
+  include/model.h
+  include/profanity.h
+)
+
+set(PLATFORM_SOURCES)
+if(WIN32)
+  list(APPEND PLATFORM_SOURCES src/audio_win.cpp include/audio_win.h)
+elseif(APPLE)
+  list(APPEND PLATFORM_SOURCES src/audio_mac.cpp include/audio_mac.h)
+else()
+  list(APPEND PLATFORM_SOURCES src/audio_linux.cpp include/audio_linux.h)
+endif()
+
+add_executable(coollivecaption
+  ${SOURCES}
+  ${PLATFORM_SOURCES}
+)
+
+set(APP_ICON resources/icon.ico)
+set(APP_RC resources/app.rc)
+set(APP_VERSION_RC ${CMAKE_BINARY_DIR}/app_version.rc)
+set(APP_VERSION_MAJOR 0)
+set(APP_VERSION_MINOR 1)
+set(APP_VERSION_PATCH 0)
+set(APP_VERSION_BUILD 0)
+set(APP_VERSION_STRING "${APP_VERSION_MAJOR}.${APP_VERSION_MINOR}.${APP_VERSION_PATCH}.${APP_VERSION_BUILD}")
+set(APP_COMPANY "Cool Live Caption")
+set(APP_COPYRIGHT "Copyright (c) 2026 Luca Jones")
+
+configure_file(${CMAKE_SOURCE_DIR}/resources/app_version.rc.in ${APP_VERSION_RC} @ONLY)
+
+if(WIN32)
+  target_sources(coollivecaption PRIVATE ${APP_VERSION_RC})
+  set_source_files_properties(${APP_VERSION_RC} PROPERTIES LANGUAGE RC)
+  if(EXISTS "${CMAKE_SOURCE_DIR}/${APP_ICON}")
+    target_sources(coollivecaption PRIVATE ${APP_RC})
+    set_source_files_properties(${APP_RC} PROPERTIES LANGUAGE RC)
+  endif()
+endif()
+
+target_include_directories(coollivecaption PRIVATE src include ${glad_SOURCE_DIR}/include ${glfw_SOURCE_DIR}/include)
+
+target_link_libraries(coollivecaption PRIVATE imgui::imgui glfw glad)
+target_compile_definitions(coollivecaption PRIVATE IMGUI_IMPL_OPENGL_LOADER_GLAD)
+
+if(ONNXRUNTIME_ROOT)
+  target_include_directories(coollivecaption PRIVATE ${ONNXRUNTIME_ROOT}/include)
+  target_link_directories(coollivecaption PRIVATE ${ONNXRUNTIME_ROOT}/lib)
+  target_link_libraries(coollivecaption PRIVATE onnxruntime)
+endif()
+
+if(TARGET aprilasr)
+  target_link_libraries(coollivecaption PRIVATE aprilasr)
+  target_include_directories(coollivecaption PRIVATE ${april_asr_source_SOURCE_DIR}/include)
+  add_custom_command(TARGET coollivecaption POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:aprilasr> $<TARGET_FILE_DIR:coollivecaption>/)
+elseif(APRIL_ASR_ROOT)
+  target_include_directories(coollivecaption PRIVATE ${APRIL_ASR_ROOT} ${APRIL_ASR_ROOT}/include)
+  target_link_directories(coollivecaption PRIVATE ${APRIL_ASR_ROOT}/lib)
+  target_link_libraries(coollivecaption PRIVATE ${APRIL_ASR_LIB_NAME})
+  add_custom_command(TARGET coollivecaption POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      ${APRIL_ASR_ROOT}/lib/${APRIL_ASR_LIB_NAME}.dll
+      $<TARGET_FILE_DIR:coollivecaption>/
+    VERBATIM)
+endif()
+
+if(WIN32)
+  target_compile_definitions(coollivecaption PRIVATE APRIL_DLL_IMPORT)
+  target_link_libraries(coollivecaption PRIVATE opengl32 ole32 uuid mmdevapi avrt ksuser)
+  if(ONNXRUNTIME_ROOT)
+    add_custom_command(TARGET coollivecaption POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${ONNXRUNTIME_ROOT}/lib/onnxruntime.dll
+        ${ONNXRUNTIME_ROOT}/lib/onnxruntime_providers_shared.dll
+        $<TARGET_FILE_DIR:coollivecaption>/
+      VERBATIM)
+  endif()
+
+  # Bundle MinGW runtime DLLs for redistribution.
+  get_filename_component(MINGW_BIN_DIR ${CMAKE_CXX_COMPILER} DIRECTORY)
+  set(MINGW_RUNTIME_DLLS
+    libgcc_s_seh-1.dll
+    libstdc++-6.dll
+    libwinpthread-1.dll
+    libsrdc.dll
+  )
+  foreach(dll ${MINGW_RUNTIME_DLLS})
+    if(EXISTS "${MINGW_BIN_DIR}/${dll}")
+      add_custom_command(TARGET coollivecaption POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          "${MINGW_BIN_DIR}/${dll}"
+          $<TARGET_FILE_DIR:coollivecaption>/
+        VERBATIM)
+    endif()
+  endforeach()
+endif()
+
+set_target_properties(coollivecaption PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
+add_custom_command(TARGET coollivecaption POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:coollivecaption>/profanity
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_SOURCE_DIR}/resources/profanity
+    $<TARGET_FILE_DIR:coollivecaption>/profanity
+  VERBATIM)
