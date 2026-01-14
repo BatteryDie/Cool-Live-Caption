@@ -7,12 +7,16 @@ A free and open source live caption desktop application that converts audio from
 - Linux: PulseAudio (loopback + microphone), PipeWire (loopback + microphone)
 - macOS: Need research
 
-### Location for Models and Transcripts
+### Location for Models, Transcripts, and Settings
 - Models are loaded from your per-user models folder:
   - Windows: `%LOCALAPPDATA%/coollivecaption/models`
   - macOS: `~/Library/Application Support/com.batterydie.coollivecaption/models`
   - Linux: `~/.coollivecaption/models`
 - Transcripts are saved to `{Documents}/Cool Live Caption/transcription-{timestamp}.txt` by default.
+- Settings are stored in the user config directory:
+  - Windows: `%LOCALAPPDATA%/coollivecaption/settings.ini`
+  - macOS: `~/Library/Application Support/com.batterydie.coollivecaption/settings.ini`
+  - Linux: `~/.config/coollivecaption/settings.ini`
 
 ### Requirements
 - CMake 3.24
@@ -61,6 +65,8 @@ cmake --build build-linux-release
 cmake -S . -B build-linux-debug -G Ninja -DCMAKE_BUILD_TYPE=Debug
 cmake --build build-linux-debug
 ```
+
+To build and test AppImage, please refer to `deploy/build_appimage.sh` script.
 
 ### Build: macOS (Clang)
 

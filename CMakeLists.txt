@@ -18,11 +18,26 @@ set(LIBRARIES_DIR "${CMAKE_BINARY_DIR}/libraries")
 
 include(FetchContent)
 
-if(NOT ONNXRUNTIME_ROOT)
-  set(ONNX_VERSION "1.23.2")
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(PIPEWIRE IMPORTED_TARGET libpipewire-0.3)
+
+set(ONNX_VERSION "1.23.2")
+if(WIN32)
   set(ONNX_ARCHIVE "onnxruntime-win-x64-${ONNX_VERSION}.zip")
-  set(ONNX_URL "https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/${ONNX_ARCHIVE}")
   set(ONNX_DIR "${LIBRARIES_DIR}/onnxruntime-win-x64-${ONNX_VERSION}")
+  set(ONNX_EXPECTED_LIB "onnxruntime.dll")
+elseif(APPLE)
+  set(ONNX_ARCHIVE "onnxruntime-osx-universal2-${ONNX_VERSION}.tgz")
+  set(ONNX_DIR "${LIBRARIES_DIR}/onnxruntime-osx-universal2-${ONNX_VERSION}")
+  set(ONNX_EXPECTED_LIB "libonnxruntime.dylib")
+else()
+  set(ONNX_ARCHIVE "onnxruntime-linux-x64-${ONNX_VERSION}.tgz")
+  set(ONNX_DIR "${LIBRARIES_DIR}/onnxruntime-linux-x64-${ONNX_VERSION}")
+  set(ONNX_EXPECTED_LIB "libonnxruntime.so")
+endif()
+
+if(NOT ONNXRUNTIME_ROOT OR NOT EXISTS "${ONNXRUNTIME_ROOT}/lib/${ONNX_EXPECTED_LIB}")
+  set(ONNX_URL "https://github.com/microsoft/onnxruntime/releases/download/v${ONNX_VERSION}/${ONNX_ARCHIVE}")
 
   FetchContent_Declare(onnxruntime_prebuilt
     URL ${ONNX_URL}
@@ -31,7 +46,7 @@ if(NOT ONNXRUNTIME_ROOT)
   )
   FetchContent_MakeAvailable(onnxruntime_prebuilt)
 
-  if(EXISTS "${ONNX_DIR}/include" AND EXISTS "${ONNX_DIR}/lib")
+  if(EXISTS "${ONNX_DIR}/include" AND EXISTS "${ONNX_DIR}/lib/${ONNX_EXPECTED_LIB}")
     set(ONNXRUNTIME_ROOT "${ONNX_DIR}" CACHE PATH "Path to ONNX Runtime prebuilt package (contains include/ and lib/)" FORCE)
     set(ONNXRuntime_ROOT_DIR "${ONNX_DIR}" CACHE PATH "")
     set(ENV{ONNX_ROOT} "${ONNX_DIR}")
@@ -162,6 +177,12 @@ endif()
 target_include_directories(coollivecaption PRIVATE src include ${glad_SOURCE_DIR}/include ${glfw_SOURCE_DIR}/include)
 
 target_link_libraries(coollivecaption PRIVATE imgui::imgui glfw glad)
+if(PIPEWIRE_FOUND)
+  target_link_libraries(coollivecaption PRIVATE PkgConfig::PIPEWIRE)
+  target_compile_definitions(coollivecaption PRIVATE HAVE_PIPEWIRE)
+else()
+  message(WARNING "PipeWire development package not found; Linux audio capture will be disabled.")
+endif()
 target_compile_definitions(coollivecaption PRIVATE IMGUI_IMPL_OPENGL_LOADER_GLAD)
 
 if(ONNXRUNTIME_ROOT)
@@ -179,11 +200,20 @@ elseif(APRIL_ASR_ROOT)
   target_include_directories(coollivecaption PRIVATE ${APRIL_ASR_ROOT} ${APRIL_ASR_ROOT}/include)
   target_link_directories(coollivecaption PRIVATE ${APRIL_ASR_ROOT}/lib)
   target_link_libraries(coollivecaption PRIVATE ${APRIL_ASR_LIB_NAME})
-  add_custom_command(TARGET coollivecaption POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      ${APRIL_ASR_ROOT}/lib/${APRIL_ASR_LIB_NAME}.dll
-      $<TARGET_FILE_DIR:coollivecaption>/
-    VERBATIM)
+  if(WIN32)
+    set(APRIL_ASR_RUNTIME ${APRIL_ASR_ROOT}/lib/${APRIL_ASR_LIB_NAME}.dll)
+  elseif(APPLE)
+    set(APRIL_ASR_RUNTIME ${APRIL_ASR_ROOT}/lib/lib${APRIL_ASR_LIB_NAME}.dylib)
+  else()
+    set(APRIL_ASR_RUNTIME ${APRIL_ASR_ROOT}/lib/lib${APRIL_ASR_LIB_NAME}.so)
+  endif()
+  if(EXISTS ${APRIL_ASR_RUNTIME})
+    add_custom_command(TARGET coollivecaption POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${APRIL_ASR_RUNTIME}
+        $<TARGET_FILE_DIR:coollivecaption>/
+      VERBATIM)
+  endif()
 endif()
 
 if(WIN32)
@@ -215,6 +245,15 @@ if(WIN32)
         VERBATIM)
     endif()
   endforeach()
+elseif(UNIX AND NOT APPLE)
+  if(ONNXRUNTIME_ROOT)
+    add_custom_command(TARGET coollivecaption POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${ONNXRUNTIME_ROOT}/lib/libonnxruntime.so
+        ${ONNXRUNTIME_ROOT}/lib/libonnxruntime_providers_shared.so
+        $<TARGET_FILE_DIR:coollivecaption>/
+      VERBATIM)
+  endif()
 endif()
 
 set_target_properties(coollivecaption PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
