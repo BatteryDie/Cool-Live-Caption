@@ -1,0 +1,55 @@
+name: Build Check
+
+on:
+  workflow_dispatch:
+
+jobs:
+  windows-build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup MSYS2 / Mingw-w64
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+
+      - name: Configure CMake (Release)
+        shell: msys2 {0}
+        run: >
+          cmake -S . -B build-windows-check
+          -G "Ninja"
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_RUNTIME_OUTPUT_DIRECTORY="${{ github.workspace }}/build-windows-check/bin"
+          -DCMAKE_LIBRARY_OUTPUT_DIRECTORY="${{ github.workspace }}/build-windows-check/bin"
+          -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY="${{ github.workspace }}/build-windows-check/lib"
+
+      - name: Build
+        shell: msys2 {0}
+        run: cmake --build build-windows-check --config Release --parallel
+
+  linux-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Configure CMake (Release)
+        run: |
+          cmake -S . -B build-linux-check \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build-linux-check --parallel
