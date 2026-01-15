@@ -149,6 +149,18 @@ jobs:
 
       - name: Build AppImage
         run: ./deploy/linux-appimage.sh
+        
+      - name: Collect AppImage artifact
+        run: |
+          src="build-appimage/Cool Live Caption.AppImage"
+          dest="build/CoolLiveCaption-x86_64.AppImage"
+          mkdir -p build
+          if [ ! -f "$src" ]; then
+            echo "AppImage not found at $src"
+            ls -l build-appimage || true
+            exit 1
+          fi
+          mv "$src" "$dest"
 
       - name: Upload AppImage artifact
         uses: actions/upload-artifact@v4
