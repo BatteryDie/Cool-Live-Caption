@@ -30,6 +30,7 @@ jobs:
           cmake -S . -B build
           -G "Ninja"
           -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5
           -DCMAKE_RUNTIME_OUTPUT_DIRECTORY="${{ github.workspace }}/build/bin"
           -DCMAKE_LIBRARY_OUTPUT_DIRECTORY="${{ github.workspace }}/build/bin"
           -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY="${{ github.workspace }}/build/lib"
@@ -72,14 +73,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Ninja
-        run: sudo apt-get update && sudo apt-get install -y ninja-build dpkg-dev
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ninja-build dpkg-dev \
+            libgl1-mesa-dev libglu1-mesa-dev \
+            libx11-dev libxrandr-dev libxinerama-dev libxi-dev libxcursor-dev \
+            libxkbcommon-dev libwayland-dev wayland-protocols
 
       - name: Configure CMake (Release)
         run: |
           cmake -S . -B build-linux-release \
             -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 
       - name: Build
         run: cmake --build build-linux-release --parallel
@@ -114,14 +122,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Ninja
-        run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ninja-build \
+            libgl1-mesa-dev libglu1-mesa-dev \
+            libx11-dev libxrandr-dev libxinerama-dev libxi-dev libxcursor-dev \
+            libxkbcommon-dev libwayland-dev wayland-protocols
 
       - name: Configure CMake (Release)
         run: |
           cmake -S . -B build-linux-release \
             -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 
       - name: Build
         run: cmake --build build-linux-release --parallel
