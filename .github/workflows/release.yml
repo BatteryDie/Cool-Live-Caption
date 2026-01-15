@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   windows-release:
     runs-on: windows-latest
@@ -93,7 +96,7 @@ jobs:
         run: cmake --build build-linux-release --parallel
 
       - name: Make deb script executable
-        run: chmod +x deploy/build-deb.sh
+        run: chmod +x deploy/linux-deb.sh
 
       - name: Build .deb
         run: |
@@ -101,7 +104,7 @@ jobs:
           VERSION=${VERSION#v}
           BUILD_DIR=${{ github.workspace }}/build-linux-release \
           VERSION=${VERSION} \
-          ./deploy/build-deb.sh
+          ./deploy/linux-deb.sh
 
       - name: Upload .deb artifact
         uses: actions/upload-artifact@v4
@@ -142,12 +145,10 @@ jobs:
         run: cmake --build build-linux-release --parallel
 
       - name: Make AppImage script executable
-        run: chmod +x resources/build-appimage.sh
+        run: chmod +x deploy/linux-appimage.sh
 
       - name: Build AppImage
-        run: |
-          BUILD_DIR=${{ github.workspace }}/build-linux-release \
-          resources/build-appimage.sh
+        run: ./deploy/linux-appimage.sh
 
       - name: Upload AppImage artifact
         uses: actions/upload-artifact@v4
