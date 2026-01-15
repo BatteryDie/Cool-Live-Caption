@@ -1,0 +1,142 @@
+name: Release (Windows)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  windows-release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Configure CMake (Release)
+        run: >
+          cmake -S . -B build
+          -G "Ninja"
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_RUNTIME_OUTPUT_DIRECTORY="${{ github.workspace }}/build/bin"
+          -DCMAKE_LIBRARY_OUTPUT_DIRECTORY="${{ github.workspace }}/build/bin"
+          -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY="${{ github.workspace }}/build/lib"
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress --yes
+
+      - name: Build installer
+        run: iscc deploy\windows-installer.iss
+
+      - name: Rename installer to tag
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $source = "build/installer_output/CoolLiveCaptionSetup.exe"
+          $dest = "build/installer_output/cool-live-caption-$tag.exe"
+          if (-not (Test-Path $source)) { throw "Installer not found: $source" }
+          Rename-Item -Path $source -NewName (Split-Path $dest -Leaf) -Force
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cool-live-caption-${{ github.ref_name }}
+          path: build/installer_output/cool-live-caption-${{ github.ref_name }}.exe
+
+      - name: Publish GitHub Release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/installer_output/cool-live-caption-${{ github.ref_name }}.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  linux-release-deb:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build dpkg-dev
+
+      - name: Configure CMake (Release)
+        run: |
+          cmake -S . -B build-linux-release \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build-linux-release --parallel
+
+      - name: Make deb script executable
+        run: chmod +x deploy/build-deb.sh
+
+      - name: Build .deb
+        run: |
+          VERSION=${{ github.ref_name }}
+          VERSION=${VERSION#v}
+          BUILD_DIR=${{ github.workspace }}/build-linux-release \
+          VERSION=${VERSION} \
+          ./deploy/build-deb.sh
+
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cool-live-caption-deb-${{ github.ref_name }}
+          path: build/deb/cool-live-caption_*_amd64.deb
+
+      - name: Publish GitHub Release asset (.deb)
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/deb/cool-live-caption_*_amd64.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  linux-release-appimage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Configure CMake (Release)
+        run: |
+          cmake -S . -B build-linux-release \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build-linux-release --parallel
+
+      - name: Make AppImage script executable
+        run: chmod +x resources/build-appimage.sh
+
+      - name: Build AppImage
+        run: |
+          BUILD_DIR=${{ github.workspace }}/build-linux-release \
+          resources/build-appimage.sh
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cool-live-caption-appimage-${{ github.ref_name }}
+          path: build/CoolLiveCaption-x86_64.AppImage
+
+      - name: Publish GitHub Release asset (AppImage)
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/CoolLiveCaption-x86_64.AppImage
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

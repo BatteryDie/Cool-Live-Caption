@@ -10,7 +10,7 @@ set -euo pipefail
 ROOT_DIR=$(cd -- "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 BUILD_DIR="${ROOT_DIR}/build-appimage"
 APPDIR="${BUILD_DIR}/CoolLiveCaption.AppDir"
-APPNAME="CoolLiveCaption"
+APPNAME="Cool Live Caption"
 BIN_NAME="coollivecaption"
 ICON_SRC_PNG="${ROOT_DIR}/resources/icon-appimage.png"
 DESKTOP_FILE="${APPDIR}/usr/share/applications/${BIN_NAME}.desktop"
