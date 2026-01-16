@@ -17,6 +17,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set release version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag.TrimStart('v')
+          "RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Setup MSYS2 / Mingw-w64
         uses: msys2/setup-msys2@v2
         with:
@@ -51,22 +58,21 @@ jobs:
       - name: Rename installer to tag
         shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}"
           $source = "build/installer_output/coollivecaptionsSetup.exe"
-          $dest = "build/installer_output/cool-live-captions-$tag.exe"
+          $dest = "build/installer_output/cool-live-captions-${{ env.RELEASE_VERSION }}-amd64.exe"
           if (-not (Test-Path $source)) { throw "Installer not found: $source" }
           Rename-Item -Path $source -NewName (Split-Path $dest -Leaf) -Force
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: cool-live-captions-${{ github.ref_name }}
-          path: build/installer_output/cool-live-captions-${{ github.ref_name }}.exe
+          name: cool-live-captions-${{ env.RELEASE_VERSION }}-amd64
+          path: build/installer_output/cool-live-captions-${{ env.RELEASE_VERSION }}-amd64.exe
 
       - name: Publish GitHub Release asset
         uses: softprops/action-gh-release@v2
         with:
-          files: build/installer_output/cool-live-captions-${{ github.ref_name }}.exe
+          files: build/installer_output/cool-live-captions-${{ env.RELEASE_VERSION }}-amd64.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -75,6 +81,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set release version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
 
       - name: Install build deps
         run: |
@@ -107,7 +118,7 @@ jobs:
       - name: Collect AppImage artifact
         run: |
           src="build-appimage/Cool Live Caption.AppImage"
-          dest="build/coollivecaptions-x86_64.AppImage"
+          dest="build/cool-live-captions-${RELEASE_VERSION}-amd64.AppImage"
           mkdir -p build
           if [ ! -f "$src" ]; then
             echo "AppImage not found at $src"
@@ -119,12 +130,12 @@ jobs:
       - name: Upload AppImage artifact
         uses: actions/upload-artifact@v4
         with:
-          name: cool-live-captions-appimage-${{ github.ref_name }}
-          path: build/coollivecaptions-x86_64.AppImage
+          name: cool-live-captions-appimage-${{ env.RELEASE_VERSION }}-amd64
+          path: build/cool-live-captions-${{ env.RELEASE_VERSION }}-amd64.AppImage
 
       - name: Publish GitHub Release asset (AppImage)
         uses: softprops/action-gh-release@v2
         with:
-          files: build/coollivecaptions-x86_64.AppImage
+          files: build/cool-live-captions-${{ env.RELEASE_VERSION }}-amd64.AppImage
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
