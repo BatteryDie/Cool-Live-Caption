@@ -66,7 +66,9 @@ export APPIMAGE_EXTRACT_AND_RUN=1
 	--appdir "${APPDIR}" \
 	--executable "${APPDIR}/usr/bin/${BIN_NAME}" \
 	--desktop-file "${DESKTOP_FILE}" \
-	--icon-file "${APPDIR}/usr/share/icons/hicolor/256x256/apps/${BIN_NAME}.png"
+	--icon-file "${APPDIR}/usr/share/icons/hicolor/256x256/apps/${BIN_NAME}.png" \
+	--exclude-library "libpulse*" \
+	--exclude-library "libpipewire-0.3*"
 
 "${APPIMAGETOOL}" "${APPDIR}" "${BUILD_DIR}/${APPNAME}.AppImage"
 
