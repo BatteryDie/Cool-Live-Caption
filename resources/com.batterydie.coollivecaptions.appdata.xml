@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop">
+  <id>com.batterydie.coollivecaptions</id>
+  <name>Cool Live Captions</name>
+  <summary>FOSS desktop live captioning application</summary>
+  <description>
+    <p>Cool Live Captions shows real-time captions for your desktop or microphone audio using on-device speech recognition.</p>
+    <p>Features include model manager, profanity filter, lower-case/line-break options, and transcript saving.</p>
+  </description>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0</project_license>
+  <developer_name>Luca Jones</developer_name>
+  <url type="homepage">https://github.com/BatteryDie/Cool-Live-Captions</url>
+  <launchable type="desktop-id">com.batterydie.coollivecaptions.desktop</launchable>
+  <provides>
+    <binary>coollivecaptions</binary>
+  </provides>
+  <releases>
+    <release version="0.1.0"/>
+  </releases>
+</component>

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Cool Live Captions
+Comment=FOSS desktop live captioning application
+Exec=coollivecaptions
+Icon=com.batterydie.coollivecaptions
+Terminal=false
+Categories=AudioVideo;Utility;
