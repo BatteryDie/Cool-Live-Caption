@@ -147,10 +147,17 @@ else()
   list(APPEND PLATFORM_SOURCES src/audio_linux.cpp include/audio_linux.h)
 endif()
 
-add_executable(coollivecaptions
-  ${SOURCES}
-  ${PLATFORM_SOURCES}
-)
+if(WIN32)
+  add_executable(coollivecaptions WIN32
+    ${SOURCES}
+    ${PLATFORM_SOURCES}
+  )
+else()
+  add_executable(coollivecaptions
+    ${SOURCES}
+    ${PLATFORM_SOURCES}
+  )
+endif()
 
 set(APP_ICON resources/icon.ico)
 set(APP_RC resources/app.rc)
@@ -218,7 +225,7 @@ endif()
 
 if(WIN32)
   target_compile_definitions(coollivecaptions PRIVATE APRIL_DLL_IMPORT)
-  target_link_libraries(coollivecaptions PRIVATE opengl32 ole32 uuid mmdevapi avrt ksuser)
+  target_link_libraries(coollivecaptions PRIVATE opengl32 ole32 uuid mmdevapi avrt ksuser shell32)
   if(ONNXRUNTIME_ROOT)
     add_custom_command(TARGET coollivecaptions POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy_if_different

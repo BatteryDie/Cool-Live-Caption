@@ -244,7 +244,7 @@ bool open_folder(const std::filesystem::path &path) {
 } // namespace
 enum class AudioSourceKind { Desktop, Microphone };
 
-int main(int argc, char **argv) {
+int run_app(int argc, char **argv) {
   (void)argc;
 
   if (!glfwInit()) {
@@ -585,5 +585,60 @@ int main(int argc, char **argv) {
 
   glfwDestroyWindow(window);
   glfwTerminate();
+  save_settings(settings_path, settings);
   return 0;
 }
+
+  #if defined(_WIN32)
+  int APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int) {
+    int wargc = 0;
+    LPWSTR *wargv = CommandLineToArgvW(GetCommandLineW(), &wargc);
+    if (!wargv) {
+      return run_app(0, nullptr);
+    }
+
+    std::vector<std::string> args;
+    args.reserve(static_cast<size_t>(wargc));
+    auto wide_to_utf8 = [](const std::wstring &w) {
+      if (w.empty()) {
+        return std::string();
+      }
+      int size = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), static_cast<int>(w.size()), nullptr, 0, nullptr, nullptr);
+      std::string out(static_cast<size_t>(size), '\0');
+      WideCharToMultiByte(CP_UTF8, 0, w.c_str(), static_cast<int>(w.size()), out.data(), size, nullptr, nullptr);
+      return out;
+    };
+
+    bool want_console = false;
+    for (int i = 0; i < wargc; ++i) {
+      auto utf8 = wide_to_utf8(wargv[i]);
+      if (utf8 == "-console" || utf8 == "--console") {
+        want_console = true;
+      }
+      args.push_back(std::move(utf8));
+    }
+
+    LocalFree(wargv);
+
+    if (want_console) {
+      AllocConsole();
+      FILE *out = nullptr;
+      freopen_s(&out, "CONOUT$", "w", stdout);
+      freopen_s(&out, "CONOUT$", "w", stderr);
+    }
+
+    std::vector<char *> argv;
+    argv.reserve(args.size());
+    for (auto &s : args) {
+      argv.push_back(s.empty() ? const_cast<char *>("") : s.data());
+    }
+
+    return run_app(static_cast<int>(argv.size()), argv.data());
+  }
+
+  int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR, int nShow) {
+    return wWinMain(hInst, hPrev, GetCommandLineW(), nShow);
+  }
+  #else
+  int main(int argc, char **argv) { return run_app(argc, argv); }
+  #endif
