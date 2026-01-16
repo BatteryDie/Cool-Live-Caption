@@ -2,11 +2,18 @@
 name: Deploy Jekyll with GitHub Pages dependencies preinstalled
 
 on:
-  # Runs on pushes targeting the default branch
+  # Only rebuild docs when docs files (or this workflow) change on main
   push:
     branches: ["main"]
+    paths:
+      - "docs/**"
+      - ".github/workflows/jekyll-gh-pages.yml"
 
-  # Allows you to run this workflow manually from the Actions tab
+  # Rebuild docs on a release publish (useful for versioned docs)
+  release:
+    types: [published]
+
+  # Allows manual runs from the Actions tab
   workflow_dispatch:
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
