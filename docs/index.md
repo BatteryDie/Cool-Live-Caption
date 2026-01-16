@@ -36,9 +36,9 @@ Windows and Linux are currently supported. macOS is coming soon.
 2. Install and launch the app.
 3. Download `april-english-dev-01110_en.april` model from link: https://abb128.github.io/april-asr/models.html
 4. Place the model file into your models folder (created on first run or by installer):
-   - Windows: `%LOCALAPPDATA%/coollivecaption/models`
-   - macOS: `~/Library/Application Support/com.batterydie.coollivecaption/models`
-   - Linux: `~/.coollivecaption/models`
+   - Windows: `%LOCALAPPDATA%/coollivecaptions/models`
+   - macOS: `~/Library/Application Support/com.batterydie.coollivecaptions/models`
+   - Linux: `~/.coollivecaptions/models`
 
 ## Download
 
