@@ -83,7 +83,8 @@ jobs:
             ninja-build dpkg-dev \
             libgl1-mesa-dev libglu1-mesa-dev \
             libx11-dev libxrandr-dev libxinerama-dev libxi-dev libxcursor-dev \
-            libxkbcommon-dev libwayland-dev wayland-protocols
+            libxkbcommon-dev libwayland-dev wayland-protocols libpipewire-0.3-dev \
+            libspa-0.2-dev
 
       - name: Configure CMake (Release)
         run: |
@@ -132,7 +133,8 @@ jobs:
             ninja-build \
             libgl1-mesa-dev libglu1-mesa-dev \
             libx11-dev libxrandr-dev libxinerama-dev libxi-dev libxcursor-dev \
-            libxkbcommon-dev libwayland-dev wayland-protocols
+            libxkbcommon-dev libwayland-dev wayland-protocols \
+            libpipewire-0.3-dev libspa-0.2-dev
 
       - name: Configure CMake (Release)
         run: |
@@ -148,6 +150,8 @@ jobs:
         run: chmod +x deploy/linux-appimage.sh
 
       - name: Build AppImage
+        env:
+          BUNDLE_AUDIO_LIBS: 1
         run: ./deploy/linux-appimage.sh
 
       - name: Collect AppImage artifact
