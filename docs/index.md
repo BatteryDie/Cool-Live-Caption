@@ -3,7 +3,11 @@ layout: default
 title: Cool Live Captions
 ---
 
-# Cool Live Captions
+# Welcome
+
+<p style="text-align:center;">
+   <img src="assets/icon.png" alt="Cool Live Captions icon" />
+</p>
 
 > Note: Cool Live Captions is experimental and captions may not be 100% accurate.
 
@@ -22,10 +26,10 @@ Windows and Linux are currently supported. macOS is coming soon.
 - Model Manager + Automatic update
 - Capture from specific applications (depending on OS capabilities)
 - macOS support
-- Application Updater
+- Application Updater (Windows and macOS only)
+- Flathub support (Linux only)
 
 ## Screenshot
-
 
 | ![Screenshot of Cool Live Captions on Windows](assets/screenshot01.png) | ![Screenshot of Cool Live Captions on Linux GNOME](assets/screenshot02.png) |
 | --- | --- |
@@ -41,11 +45,13 @@ Windows and Linux are currently supported. macOS is coming soon.
    - macOS: `~/Library/Application Support/com.batterydie.coollivecaptions/models`
    - Linux: `~/.coollivecaptions/models`
 
+Any issue, please sumbit on the [GitHub Issues page](https://github.com/batterydie/cool-live-captions/issues).
+
 ## Download
 
 Grab the latest build on the [Releases page](https://github.com/batterydie/cool-live-captions/releases).
 
-> `.EXE` is installer for Windows and `.DEB` is Debian package and `.AppImage` is portable application format for Linux.
+> `.EXE` is an installer for Windows, `.AppImage` is a portable application for Linux, and `.DMG` is an image file for macOS.
 
 For AppImage file, set executable permission via GUI or commandline before running.
 
