@@ -6,4 +6,4 @@ plugins:
   - jekyll-seo-tag
   - jekyll-remote-theme
 repository: batterydie/cool-live-caption
-show_downloads: true
+show_downloads: false
