@@ -5,6 +5,8 @@ title: Cool Live Caption
 
 # Cool Live Caption
 
+> Note: Cool Live Caption is experimental and captions may not be 100% accurate.
+
 A free and open source live caption desktop application that converts audio from your microphone or system audio to text in real-time. The speech recognition is powered by april-asr library with ONNX format. All processed on-device using your CPU.
 
 Windows and Linux are currently supported. macOS is coming soon.
@@ -23,7 +25,8 @@ Windows and Linux are currently supported. macOS is coming soon.
 
 ## Screenshot
 
-![Screenshot of Cool Live Caption on Windows](assets/screenshot01.png)
+| ![Screenshot of Cool Live Caption on Windows](assets/screenshot01.png) | ![Screenshot of Cool Live Caption on Linux GNOME](assets/screenshot02.png) |
+| --- | --- |
 
 ## Quick Start
 
@@ -36,6 +39,7 @@ Windows and Linux are currently supported. macOS is coming soon.
    - Linux: `~/.coollivecaption/models`
 
 ## Download
+
 Grab the latest build on the [Releases page](https://github.com/batterydie/cool-live-caption/releases).
 
 ## Acknowledgements
