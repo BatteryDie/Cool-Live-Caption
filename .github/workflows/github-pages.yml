@@ -10,8 +10,8 @@ on:
       - ".github/workflows/github-pages.yml"
 
   # Rebuild docs on a release publish (useful for versioned docs)
-  release:
-    types: [published]
+  #release:
+  #  types: [published]
 
   # Allows manual runs from the Actions tab
   workflow_dispatch:
