@@ -23,6 +23,7 @@
 #include "transcription.h"
 #include "model.h"
 #include "profanity.h"
+#include "app_update.h"
 
 #if defined(_WIN32)
 #include "audio_win.h"
@@ -44,6 +45,8 @@ namespace {
 void log_info(const std::string &msg) {
   std::fprintf(stdout, "[info] %s\n", msg.c_str());
 }
+constexpr const char *kAppVersion = APP_VERSION_STRING;
+constexpr const char *kAppVersionTag = APP_VERSION_TAG;
 
 void log_error(const std::string &msg) {
   std::fprintf(stderr, "[error] %s\n", msg.c_str());
@@ -312,6 +315,7 @@ int run_app(int argc, char **argv) {
   AudioBackend audio;
   AudioSourceKind audio_source = AudioSourceKind::Desktop;
   ProfanityFilter profanity;
+  app_update::UpdateState update_state;
 
   auto models = model_manager.models();
   std::optional<std::filesystem::path> active_model;
@@ -358,6 +362,7 @@ int run_app(int argc, char **argv) {
   bool lower_case_enabled = settings.lower_case;
 
   while (!glfwWindowShouldClose(window)) {
+    app_update::finalize_update_thread(update_state);
     glfwPollEvents();
 
     if (refresh_models) {
@@ -455,6 +460,9 @@ int run_app(int argc, char **argv) {
         ImGui::EndMenu();
       }
       if (ImGui::BeginMenu("Settings")) {
+        if (ImGui::MenuItem("Check for Update...")) {
+          app_update::start_update_check(update_state);
+        }
         bool atop = settings.always_on_top;
         if (ImGui::MenuItem("Always On Top", nullptr, atop)) {
           settings.always_on_top = !atop;
@@ -503,6 +511,62 @@ int run_app(int argc, char **argv) {
         ImGui::EndMenu();
       }
       ImGui::EndMainMenuBar();
+    }
+
+    bool open_update_popup = false;
+    {
+      std::lock_guard<std::mutex> lock(update_state.mutex);
+      if (update_state.show_modal) {
+        open_update_popup = true;
+        update_state.show_modal = false;
+      }
+    }
+    if (open_update_popup) {
+      ImGui::OpenPopup("Check for Update");
+    }
+
+    if (ImGui::BeginPopupModal("Check for Update", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+      bool checking = false;
+      bool has_result = false;
+      app_update::UpdateResult snapshot;
+      {
+        std::lock_guard<std::mutex> lock(update_state.mutex);
+        checking = update_state.checking;
+        has_result = update_state.has_result;
+        snapshot = update_state.result;
+      }
+
+      if (checking || !has_result) {
+        ImGui::TextUnformatted("Please wait. Checking for update.");
+        if (ImGui::Button("Close")) {
+          ImGui::CloseCurrentPopup();
+        }
+      } else if (!snapshot.success) {
+        ImGui::TextWrapped("Update check failed: %s", snapshot.error.c_str());
+        if (ImGui::Button("Close")) {
+          ImGui::CloseCurrentPopup();
+        }
+      } else {
+        int cmp = app_update::compare_versions(kAppVersionTag, snapshot.latest_tag);
+        if (cmp < 0) {
+          ImGui::TextWrapped("%s is available (current %s). Update now?", snapshot.latest_tag.c_str(), kAppVersionTag);
+          if (ImGui::Button("Yes")) {
+            app_update::open_url(snapshot.latest_url);
+            ImGui::CloseCurrentPopup();
+          }
+          ImGui::SameLine();
+          if (ImGui::Button("No")) {
+            ImGui::CloseCurrentPopup();
+          }
+        } else {
+          ImGui::TextWrapped("You are up to date. Current version %s.", kAppVersionTag);
+          if (ImGui::Button("OK")) {
+            ImGui::CloseCurrentPopup();
+          }
+        }
+      }
+
+      ImGui::EndPopup();
     }
 
     float menu_height = ImGui::GetFrameHeight();
@@ -578,6 +642,7 @@ int run_app(int argc, char **argv) {
 
   audio.stop();
   engine.stop();
+  app_update::finalize_update_thread(update_state);
 
   ImGui_ImplOpenGL3_Shutdown();
   ImGui_ImplGlfw_Shutdown();
