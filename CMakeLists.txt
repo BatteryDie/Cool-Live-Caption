@@ -126,6 +126,7 @@ target_link_libraries(imgui_obj PUBLIC glfw glad)
 
 set(SOURCES
   src/main.cpp
+  src/app_update.cpp
   src/caption.cpp
   src/april_asr.cpp
   src/transcription.cpp
@@ -136,6 +137,7 @@ set(SOURCES
   include/transcription.h
   include/model.h
   include/profanity.h
+  include/app_update.h
 )
 
 set(PLATFORM_SOURCES)
@@ -182,6 +184,15 @@ if(WIN32)
 endif()
 
 target_include_directories(coollivecaptions PRIVATE src include ${glad_SOURCE_DIR}/include ${glfw_SOURCE_DIR}/include)
+target_compile_definitions(coollivecaptions PRIVATE
+  APP_VERSION_STRING="${APP_VERSION_STRING}"
+  APP_VERSION_MAJOR=${APP_VERSION_MAJOR}
+  APP_VERSION_MINOR=${APP_VERSION_MINOR}
+  APP_VERSION_PATCH=${APP_VERSION_PATCH}
+  APP_VERSION_BUILD=${APP_VERSION_BUILD}
+  APP_VERSION_TAG="v${APP_VERSION_MAJOR}.${APP_VERSION_MINOR}.${APP_VERSION_PATCH}"
+  GITHUB_REPO="BatteryDie/Cool-Live-Captions"
+)
 
 target_link_libraries(coollivecaptions PRIVATE imgui::imgui glfw glad)
 if(PIPEWIRE_FOUND)

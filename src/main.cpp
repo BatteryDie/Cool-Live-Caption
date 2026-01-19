@@ -23,6 +23,7 @@
 #include "transcription.h"
 #include "model.h"
 #include "profanity.h"
+#include "app_update.h"
 
 #if defined(_WIN32)
 #include "audio_win.h"
@@ -44,6 +45,8 @@ namespace {
 void log_info(const std::string &msg) {
   std::fprintf(stdout, "[info] %s\n", msg.c_str());
 }
+constexpr const char *kAppVersion = APP_VERSION_STRING;
+constexpr const char *kAppVersionTag = APP_VERSION_TAG;
 
 void log_error(const std::string &msg) {
   std::fprintf(stderr, "[error] %s\n", msg.c_str());
@@ -70,7 +73,8 @@ struct AppSettings {
   bool auto_scroll = true;
   bool break_lines = true;
   bool profanity_filter = false;
-  bool lower_case = false;
+  bool lower_case = true;
+  bool auto_check_updates = true;
 };
 
 std::string detect_language_from_model(const std::filesystem::path &model_path) {
@@ -153,6 +157,8 @@ void load_settings(const std::filesystem::path &path, AppSettings &settings) {
       settings.profanity_filter = line.find("=1") != std::string::npos;
     } else if (line.rfind("lower_case=", 0) == 0) {
       settings.lower_case = line.find("=1") != std::string::npos;
+    } else if (line.rfind("auto_check_updates=", 0) == 0) {
+      settings.auto_check_updates = line.find("=1") != std::string::npos;
     }
   }
 }
@@ -165,7 +171,8 @@ void save_settings(const std::filesystem::path &path, const AppSettings &setting
     while (std::getline(in, line)) {
       if (line.rfind("always_on_top=", 0) == 0 || line.rfind("font_size=", 0) == 0 ||
           line.rfind("auto_scroll=", 0) == 0 || line.rfind("break_lines=", 0) == 0 ||
-          line.rfind("profanity_filter=", 0) == 0 || line.rfind("lower_case=", 0) == 0) {
+          line.rfind("profanity_filter=", 0) == 0 || line.rfind("lower_case=", 0) == 0 ||
+          line.rfind("auto_check_updates=", 0) == 0) {
         continue;
       }
       lines.push_back(line);
@@ -177,6 +184,7 @@ void save_settings(const std::filesystem::path &path, const AppSettings &setting
   lines.push_back(std::string("break_lines=") + (settings.break_lines ? "1" : "0"));
   lines.push_back(std::string("profanity_filter=") + (settings.profanity_filter ? "1" : "0"));
   lines.push_back(std::string("lower_case=") + (settings.lower_case ? "1" : "0"));
+  lines.push_back(std::string("auto_check_updates=") + (settings.auto_check_updates ? "1" : "0"));
   std::ofstream out(path, std::ios::trunc);
   for (const auto &l : lines) {
     out << l << '\n';
@@ -312,6 +320,10 @@ int run_app(int argc, char **argv) {
   AudioBackend audio;
   AudioSourceKind audio_source = AudioSourceKind::Desktop;
   ProfanityFilter profanity;
+  app_update::UpdateState update_state;
+  if (settings.auto_check_updates) {
+    app_update::start_update_check(update_state, false);
+  }
 
   auto models = model_manager.models();
   std::optional<std::filesystem::path> active_model;
@@ -358,6 +370,7 @@ int run_app(int argc, char **argv) {
   bool lower_case_enabled = settings.lower_case;
 
   while (!glfwWindowShouldClose(window)) {
+    app_update::finalize_update_thread(update_state);
     glfwPollEvents();
 
     if (refresh_models) {
@@ -455,12 +468,30 @@ int run_app(int argc, char **argv) {
         ImGui::EndMenu();
       }
       if (ImGui::BeginMenu("Settings")) {
+        ImGui::TextDisabled("System");
+        bool auto_update_menu = settings.auto_check_updates;
+        if (ImGui::MenuItem("Automatically Check for Updates", nullptr, auto_update_menu)) {
+          settings.auto_check_updates = !auto_update_menu;
+          save_settings(settings_path, settings);
+          if (settings.auto_check_updates) {
+            app_update::start_update_check(update_state, false);
+          }
+        }
+        if (ImGui::MenuItem("Check for Updates now...")) {
+          app_update::start_update_check(update_state, true);
+        }
+        ImGui::Separator();
+
+        ImGui::TextDisabled("Windows");
         bool atop = settings.always_on_top;
         if (ImGui::MenuItem("Always On Top", nullptr, atop)) {
           settings.always_on_top = !atop;
           glfwSetWindowAttrib(window, GLFW_FLOATING, settings.always_on_top ? GLFW_TRUE : GLFW_FALSE);
           save_settings(settings_path, settings);
         }
+        ImGui::Separator();
+
+        ImGui::TextDisabled("Captions");
         bool auto_scroll_menu = auto_scroll_enabled;
         if (ImGui::MenuItem("Auto Scroll", nullptr, auto_scroll_menu)) {
           auto_scroll_enabled = !auto_scroll_menu;
@@ -476,12 +507,6 @@ int run_app(int argc, char **argv) {
         if (ImGui::MenuItem("Lower Case Text", nullptr, lower_case_menu)) {
           lower_case_enabled = !lower_case_menu;
           settings.lower_case = lower_case_enabled;
-          save_settings(settings_path, settings);
-        }
-        bool profanity_menu = profanity_filter_enabled;
-        if (ImGui::MenuItem("Profanity Filter", nullptr, profanity_menu)) {
-          profanity_filter_enabled = !profanity_menu;
-          settings.profanity_filter = profanity_filter_enabled;
           save_settings(settings_path, settings);
         }
         if (ImGui::BeginMenu("Text Size")) {
@@ -500,9 +525,78 @@ int run_app(int argc, char **argv) {
           }
           ImGui::EndMenu();
         }
+        ImGui::Separator();
+
+        ImGui::TextDisabled("Extras");
+        bool profanity_menu = profanity_filter_enabled;
+        if (ImGui::MenuItem("Profanity Filter", nullptr, profanity_menu)) {
+          profanity_filter_enabled = !profanity_menu;
+          settings.profanity_filter = profanity_filter_enabled;
+          save_settings(settings_path, settings);
+        }
         ImGui::EndMenu();
       }
       ImGui::EndMainMenuBar();
+    }
+
+    bool open_update_popup = false;
+    {
+      std::lock_guard<std::mutex> lock(update_state.mutex);
+      if (update_state.show_modal) {
+        open_update_popup = true;
+        update_state.show_modal = false;
+      }
+    }
+    if (open_update_popup) {
+      ImGui::OpenPopup("Check for Update");
+    }
+
+    if (ImGui::BeginPopupModal("Check for Update", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+      bool checking = false;
+      bool has_result = false;
+      app_update::UpdateResult snapshot;
+      {
+        std::lock_guard<std::mutex> lock(update_state.mutex);
+        checking = update_state.checking;
+        has_result = update_state.has_result;
+        snapshot = update_state.result;
+      }
+
+      if (checking || !has_result) {
+        ImGui::TextUnformatted("Please wait. Checking for update.");
+        if (ImGui::Button("Close")) {
+          ImGui::CloseCurrentPopup();
+        }
+      } else if (!snapshot.success) {
+        ImGui::TextWrapped("Update check failed: %s", snapshot.error.c_str());
+        if (ImGui::Button("Close")) {
+          ImGui::CloseCurrentPopup();
+        }
+      } else {
+        int cmp = app_update::compare_versions(kAppVersionTag, snapshot.latest_tag);
+        if (cmp < 0) {
+          ImGui::TextWrapped("%s is available (current %s). Update now?", snapshot.latest_tag.c_str(), kAppVersionTag);
+#if defined(__linux__)
+          ImGui::Spacing();
+          ImGui::TextWrapped("If you installed this app through a package manager, please update it there to get the latest version.");
+#endif
+          if (ImGui::Button("Yes")) {
+            app_update::open_url(snapshot.latest_url);
+            ImGui::CloseCurrentPopup();
+          }
+          ImGui::SameLine();
+          if (ImGui::Button("No")) {
+            ImGui::CloseCurrentPopup();
+          }
+        } else {
+          ImGui::TextWrapped("You are up to date. Current version %s.", kAppVersionTag);
+          if (ImGui::Button("OK")) {
+            ImGui::CloseCurrentPopup();
+          }
+        }
+      }
+
+      ImGui::EndPopup();
     }
 
     float menu_height = ImGui::GetFrameHeight();
@@ -578,6 +672,7 @@ int run_app(int argc, char **argv) {
 
   audio.stop();
   engine.stop();
+  app_update::finalize_update_thread(update_state);
 
   ImGui_ImplOpenGL3_Shutdown();
   ImGui_ImplGlfw_Shutdown();
