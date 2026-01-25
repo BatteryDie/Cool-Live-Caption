@@ -334,10 +334,13 @@ int run_app(int argc, char **argv) {
   (void)argc;
 
   bool use_dev_manifest = false;
+  bool use_gpu = false;
   for (int i = 1; i < argc; ++i) {
     std::string a(argv[i]);
     if (a == "--dev-manifest") {
       use_dev_manifest = true;
+    } else if (a == "--gpu") {
+      use_gpu = true;
     }
   }
 
@@ -414,6 +417,7 @@ int run_app(int argc, char **argv) {
   CaptionView caption;
   TranscriptionWriter writer;
   AprilAsrEngine engine;
+  engine.set_use_gpu(use_gpu);
   AudioBackend audio;
   AudioSourceKind audio_source = AudioSourceKind::Desktop;
   ProfanityFilter profanity;
@@ -1158,17 +1162,30 @@ int run_app(int argc, char **argv) {
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(ImGui::GetStyle().ItemSpacing.x, line_spacing));
     ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + wrap_width);
 
-    const char *start = composed.c_str();
-    const char *end = start + composed.size();
-    while (start < end) {
-      const char *newline = static_cast<const char *>(memchr(start, '\n', end - start));
-      if (!newline) {
-        ImGui::TextUnformatted(start, end);
+    const char *s = composed.c_str();
+    const char *e = s + composed.size();
+    std::vector<std::string_view> lines;
+    lines.reserve(64);
+    const char *cur = s;
+    while (cur < e) {
+      const char *nl = static_cast<const char *>(memchr(cur, '\n', e - cur));
+      if (!nl) {
+        lines.emplace_back(cur, static_cast<size_t>(e - cur));
         break;
       }
-      ImGui::TextUnformatted(start, newline);
-      start = newline + 1;
+      lines.emplace_back(cur, static_cast<size_t>(nl - cur));
+      cur = nl + 1;
     }
+
+    ImGuiListClipper clipper;
+    clipper.Begin(static_cast<int>(lines.size()), ImGui::GetTextLineHeightWithSpacing());
+    while (clipper.Step()) {
+      for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i) {
+        const auto &sv = lines[i];
+        ImGui::TextUnformatted(sv.data(), sv.data() + sv.size());
+      }
+    }
+    clipper.End();
 
     float max_scroll = ImGui::GetScrollMaxY();
     float scroll_y = ImGui::GetScrollY();
